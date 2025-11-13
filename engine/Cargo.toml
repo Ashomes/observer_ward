@@ -32,7 +32,8 @@ slinger = { version = "0.2.9", features = [
     "schema"
 ] }
 # TLS 后端依赖（同时支持 native-tls 和 rustls）
-native-tls = { version = "0.2", features = ["alpn"] }
+# 为解决 Linux（尤其是 musl/交叉编译）下 OpenSSL 发现失败问题，启用 vendored，内置编译 OpenSSL
+native-tls = { version = "0.2", features = ["alpn", "vendored"] }
 tokio-native-tls = "0.3"
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
 tokio-rustls = "0.26"
