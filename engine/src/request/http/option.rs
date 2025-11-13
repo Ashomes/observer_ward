@@ -123,6 +123,18 @@ pub struct HttpOption {
 
 impl HttpOption {
   pub fn builder_client(&self) -> slinger::ClientBuilder {
+    self.builder_client_with_tls(crate::tls::TlsBackend::Native)
+  }
+
+  pub fn builder_client_with_tls(&self, tls_backend: crate::tls::TlsBackend) -> slinger::ClientBuilder {
+    self.builder_client_with_tls_and_proxy(tls_backend, None)
+  }
+
+  pub fn builder_client_with_tls_and_proxy(
+    &self,
+    tls_backend: crate::tls::TlsBackend,
+    proxy: Option<&slinger::Proxy>
+  ) -> slinger::ClientBuilder {
     let redirect = if self.redirects {
       if self.host_redirects {
         slinger::redirect::Policy::Custom(crate::common::http::js_redirect)
@@ -132,12 +144,19 @@ impl HttpOption {
     } else {
       slinger::redirect::Policy::None
     };
+
+    let tls_connector = crate::tls::get_tls_connector(tls_backend);
+    let mut connector_builder = slinger::ConnectorBuilder::default()
+      .custom_tls_connector(tls_connector);
+
+    if let Some(proxy) = proxy {
+      connector_builder = connector_builder.proxy(Some(proxy.clone()));
+    }
+
     slinger::ClientBuilder::default()
-      .danger_accept_invalid_certs(true)
-      .danger_accept_invalid_hostnames(true)
+      .connector_builder(connector_builder)
       .cookie_store(self.cookie_reuse)
       .redirect(redirect)
-      .min_tls_version(Some(slinger::tls::Version::TLS_1_0))
       .user_agent(HeaderValue::from_static(
         "Mozilla/5.0 (X11; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0",
       ))

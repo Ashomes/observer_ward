@@ -31,11 +31,13 @@ async fn main() {
     .with_target(false)
     .without_time()
     .with_ansi(!config.no_color);
-  // 设置全局日志订阅器
   tracing_subscriber::registry()
     .with(tracing_subscriber::EnvFilter::new(log_filter))
     .with(fmt_layer)
     .init();
+
+  info!("{}TLS backend: {}", Emoji("🔐", ""), engine::tls::get_backend_info(config.tls));
+  
   if let Some(address) = &config.api_server {
     #[cfg(not(target_os = "windows"))]
     if config.daemon {

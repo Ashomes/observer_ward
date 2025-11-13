@@ -67,6 +67,7 @@
 - 使用nvd标准通用平台枚举 ([CPE](https://scap.kali-team.cn/cpe/)) 命名规范
 - [社区化指纹库](https://github.com/0x727/FingerprintHub)和nmap服务探针
 - 集成 [Nuclei](https://github.com/projectdiscovery/nuclei) 验证漏洞
+- 支持可切换的 TLS 后端（native-tls 与 rustls）
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -137,7 +138,7 @@ brew install observer_ward
 
 ```bash,no-run
 ➜ ./observer_ward --help                                                                      
-Usage: observer_ward [-l <list>] [-t <target...>] [-p <probe-path>] [--probe-dir <probe-dir...>] [--ua <ua>] [--mode <mode>] [--timeout <timeout>] [--thread <thread>] [--proxy <proxy>] [--ir] [--ic] [--plugin <plugin>] [-o <output>] [--format <format>] [--no-color] [--nuclei-args <nuclei-args...>] [--silent] [--debug] [--config-dir <config-dir>] [--update-self] [-u] [--update-plugin] [--daemon] [--token <token>] [--webhook <webhook>] [--webhook-auth <webhook-auth>] [--api-server <api-server>]
+Usage: observer_ward [-l <list>] [-t <target...>] [-p <probe-path>] [--probe-dir <probe-dir...>] [--ua <ua>] [--mode <mode>] [--timeout <timeout>] [--thread <thread>] [--proxy <proxy>] [--ir] [--ic] [--tls <tls>] [--plugin <plugin>] [-o <output>] [--format <format>] [--no-color] [--nuclei-args <nuclei-args...>] [--silent] [--debug] [--config-dir <config-dir>] [--update-self] [-u] [--update-plugin] [--daemon] [--token <token>] [--webhook <webhook>] [--webhook-auth <webhook-auth>] [--api-server <api-server>]
 
 observer_ward
 
@@ -154,6 +155,7 @@ Options:
                     (ex:[http(s)|socks5(h)]://host:port)
   --ir              include request/response pairs in output
   --ic              include certificate pairs in output
+  --tls             TLS backend [native, rustls] (default: native)
   --plugin          customized template dir
   -o, --output      export to the file
   --format          output format option[json,csv,txt] default: txt
@@ -189,6 +191,7 @@ Options:
 | --proxy                 | 设置代理服务器，支持http和socks5，例如：`https://username:password@your-proxy.com:port` |
 | --ir                    | 在json结果中保存请求和响应，保存请求响应可能比较消耗内存                                           |
 | --ic                    | 在json结果中保存证书数据                                                           |
+| --tls                   | TLS 后端：[native, rustls]，默认 native；在系统 native-tls 与纯 Rust 的 rustls 之间切换 |
 | --plugin                | 指定nuclei插件路径，会开启nuclei验证漏洞，如果路径为`default`默认调用配置文件夹下的`plugins`目录          |
 | -o,--output             | 将结果保存到文件，如果文件后缀名是下面格式支持的可以省略`--format`参数                                 |
 | --format                | 输出格式：支持`json`，`csv`和`txt`，在保存文件的时候会根据文件后缀自动识别                            |
@@ -510,6 +513,9 @@ Press CTRL+C to quit
 [INFO ] 🗳:[result...]
 ```
 
+## 功能修改
+
+- rustls不支持不安全的算法，导致出现“received fatal alert:HandshakeFailure”报错；当前版本支持native_tls和rustls，默认为native_tls
 <!-- CONTRIBUTING -->
 
 ## 提交指纹

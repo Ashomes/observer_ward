@@ -20,3 +20,12 @@ impl From<engine::slinger::Error> for Error {
 pub(crate) fn new_io_error(msg: &str) -> Error {
   Error::IO(std::io::Error::new(ErrorKind::InvalidData, msg))
 }
+
+impl Error {
+  pub fn detailed_message(&self) -> String {
+    match self {
+      Error::IO(e) => format!("IO Error: {}", e),
+      Error::Http(e) => format!("HTTP Error: {:?}", e)
+    }
+  }
+}

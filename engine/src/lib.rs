@@ -7,6 +7,7 @@ pub mod request;
 pub mod results;
 pub mod serde_format;
 pub mod template;
+pub mod tls;
 
 pub use slinger;
 use std::path::{Path, PathBuf};

@@ -1,5 +1,5 @@
 use crate::cli::{Mode, ObserverWardConfig};
-use crate::error::new_io_error;
+use crate::error::{Error, new_io_error};
 use crate::nuclei::{NucleiRunner, gen_nuclei_tags};
 use console::Emoji;
 use engine::common::cert::X509Certificate;
@@ -319,30 +319,29 @@ impl ClusterExecuteRunner {
     cluster: &ClusterExecute,
     http_record: &mut HttpRecord,
   ) -> Result<()> {
-    // 可能会有多个http，一般只有一个，多个会有flow控制
     for http in cluster.requests.http.iter() {
       let mut client_builder = http
         .http_option
-        .builder_client()
+        .builder_client_with_tls_and_proxy(config.tls, config.proxy.as_ref())
         .timeout(Some(Duration::from_secs(config.timeout)))
         .redirect(Policy::Custom(engine::common::http::js_redirect));
       if let Ok(ua) = HeaderValue::from_str(&config.ua) {
         client_builder = client_builder.user_agent(ua);
-      }
-      if let Some(proxy) = &config.proxy {
-        client_builder = client_builder.proxy(proxy.clone());
       }
       let client = client_builder.build().unwrap_or_default();
       let generator = RequestGenerator::new(http, &self.target);
       // 请求全部路径
       for request in generator {
         debug!("{}{:#?}", Emoji("📤", ""), request);
-        let mut response = self
-          .cache
-          .entry(self.get_request_hash(&request))
-          .or_insert(client.execute(request.clone()).await?)
-          .await
-          .into_value();
+        // Only execute the network request if cache misses
+        let key = self.get_request_hash(&request);
+        let mut response = if let Some(cached) = self.cache.get(&key).await {
+          cached
+        } else {
+          let fetched = client.execute(request.clone()).await?;
+          self.cache.insert(key, fetched.clone()).await;
+          fetched
+        };
         debug!("{}{:#?}", Emoji("📥", ""), response);
         // 提取icon
         http_record.find_favicon_tag(&mut response).await;
@@ -517,8 +516,11 @@ impl ObserverWard {
     let mut http_record = HttpRecord::new(self.config.http_client_builder());
     for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
       if let Err(err) = runner.http(&self.config, clusters, &mut http_record).await {
-        debug!("{}:{}", Emoji("💢", ""), err);
-        // 首页访问失败
+        let error_msg = match &err {
+          Error::Http(engine::slinger::Error::Other(msg)) => msg.clone(),
+          _ => format!("{}", err),
+        };
+        debug!("{}:{}", Emoji("💢", ""), error_msg);
         if index == 0 {
           return;
         }
@@ -526,8 +528,11 @@ impl ObserverWard {
     }
     for (index, clusters) in self.cluster_type.web_other.iter().enumerate() {
       if let Err(err) = runner.http(&self.config, clusters, &mut http_record).await {
-        debug!("{}:{}", Emoji("💢", ""), err);
-        // 第一次访问失败
+        let error_msg = match &err {
+          Error::Http(engine::slinger::Error::Other(msg)) => msg.clone(),
+          _ => format!("{}", err),
+        };
+        debug!("{}:{}", Emoji("💢", ""), error_msg);
         if index == 0 {
           break;
         }

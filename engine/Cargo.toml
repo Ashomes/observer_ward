@@ -29,9 +29,16 @@ slinger = { version = "0.2.9", features = [
     "tls",
     "charset",
     "gzip",
-    "schema",
-    "rustls"
+    "schema"
 ] }
+# TLS 后端依赖（同时支持 native-tls 和 rustls）
+native-tls = { version = "0.2", features = ["alpn"] }
+tokio-native-tls = "0.3"
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
+tokio-rustls = "0.26"
+rustls-pemfile = "2.0"
+webpki-roots = "0.26"
+tokio = { version = "1", features = ["net", "io-util"] }
 md-5 = "0.10.6"
 tl = "0.7.8"
 mime = "0.3.17"

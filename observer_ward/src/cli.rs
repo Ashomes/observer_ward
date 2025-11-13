@@ -155,6 +155,10 @@ pub struct ObserverWardConfig {
   #[argh(switch)]
   #[serde(default)]
   pub ic: bool,
+  /// TLS backend [native, rustls] (default: native)
+  #[argh(option, default = "default_tls_backend()")]
+  #[serde(default = "default_tls_backend")]
+  pub tls: engine::tls::TlsBackend,
   /// customized template dir
   #[argh(option)]
   #[serde(default)]
@@ -230,6 +234,10 @@ pub struct ObserverWardConfig {
   #[argh(option)]
   #[serde(skip)]
   pub prompt_path: Option<PathBuf>,
+}
+
+fn default_tls_backend() -> engine::tls::TlsBackend {
+  engine::tls::TlsBackend::default()
 }
 
 fn default_token() -> Option<String> {
@@ -312,25 +320,24 @@ impl ObserverWardConfig {
   pub fn tcp_client_builder(&self) -> ConnectorBuilder {
     let timeout = Duration::from_secs(self.timeout);
 
-    ConnectorBuilder::default()
+    let builder = ConnectorBuilder::default()
       .nodelay(true)
       .proxy(self.proxy.clone())
       .connect_timeout(Some(timeout))
       .read_timeout(Some(timeout))
-      .write_timeout(Some(timeout))
+      .write_timeout(Some(timeout));
+
+    engine::tls::configure_connector_builder(self.tls, builder)
   }
   pub fn http_client_builder(&self) -> ClientBuilder {
     let mut client_builder = ClientBuilder::default()
-      .danger_accept_invalid_certs(true)
-      .danger_accept_invalid_hostnames(true)
-      .min_tls_version(Some(engine::slinger::tls::Version::TLS_1_0))
       .redirect(Policy::Custom(engine::common::http::js_redirect))
       .timeout(Some(Duration::from_secs(self.timeout)));
+
+    client_builder = engine::tls::configure_client_builder(self.tls, client_builder, self.proxy.as_ref());
+
     if let Ok(ua) = HeaderValue::from_str(&self.ua) {
       client_builder = client_builder.user_agent(ua);
-    }
-    if let Some(proxy) = &self.proxy {
-      client_builder = client_builder.proxy(proxy.clone());
     }
     client_builder
   }
